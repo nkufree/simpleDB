@@ -17,6 +17,23 @@ import java.util.concurrent.ConcurrentHashMap;
  * @Threadsafe
  */
 public class Catalog {
+	
+	private final ConcurrentHashMap<Integer,Table> hashTable;
+	
+	private static class Table{
+		private static final long serialVersionUID = 1L;
+		public final DbFile dbfile;
+		public final String tableName;
+		public final String pk;
+		
+		public Table(DbFile file,String name,String pkeyField)
+		{
+			dbfile = file;
+			tableName = name;
+			pk = pkeyField;
+		}
+		
+	}
 
     /**
      * Constructor.
@@ -24,6 +41,7 @@ public class Catalog {
      */
     public Catalog() {
         // some code goes here
+    	hashTable = new ConcurrentHashMap<Integer,Table>();
     }
 
     /**
@@ -37,6 +55,8 @@ public class Catalog {
      */
     public void addTable(DbFile file, String name, String pkeyField) {
         // some code goes here
+    	Table tab = new Table(file,name,pkeyField);
+    	hashTable.put(file.getId(), tab);
     }
 
     public void addTable(DbFile file, String name) {
@@ -60,7 +80,14 @@ public class Catalog {
      */
     public int getTableId(String name) throws NoSuchElementException {
         // some code goes here
-        return 0;
+    	Integer id = hashTable.searchValues(1, v->{
+    		if(v.tableName.equals(name))
+    			return v.dbfile.getId();
+    		return null;
+    		}); 
+    	if(id == null)
+    		throw new NoSuchElementException("Table " + name + " does not exist");
+        return id.intValue();
     }
 
     /**
@@ -70,8 +97,12 @@ public class Catalog {
      * @throws NoSuchElementException if the table doesn't exist
      */
     public TupleDesc getTupleDesc(int tableid) throws NoSuchElementException {
-        // some code goes here
-        return null;
+        // some code goes here 
+    	Table tab = hashTable.getOrDefault(tableid,null);
+    	if(tab != null)
+    		return tab.dbfile.getTupleDesc();
+    	else
+    		throw new NoSuchElementException("TableId " + tableid + " does not exist");
     }
 
     /**
@@ -82,27 +113,40 @@ public class Catalog {
      */
     public DbFile getDatabaseFile(int tableid) throws NoSuchElementException {
         // some code goes here
-        return null;
+    	Table tab = hashTable.getOrDefault(tableid,null);
+    	if(tab != null)
+    		return tab.dbfile;
+    	else
+    		throw new NoSuchElementException("TableId " + tableid + " does not exist");
     }
 
     public String getPrimaryKey(int tableid) {
         // some code goes here
-        return null;
+    	Table tab = hashTable.getOrDefault(tableid,null);
+    	if(tab != null)
+    		return tab.pk;
+    	else
+    		throw new NoSuchElementException("TableId " + tableid + " does not exist");
     }
 
     public Iterator<Integer> tableIdIterator() {
         // some code goes here
-        return null;
+        return hashTable.keySet().iterator();
     }
 
     public String getTableName(int id) {
         // some code goes here
-        return null;
+    	Table tab = hashTable.getOrDefault(id, null);
+    	if(tab != null)
+    		return tab.tableName;
+    	else
+    		return null;
     }
     
     /** Delete all tables from the catalog */
     public void clear() {
         // some code goes here
+    	hashTable.clear();
     }
     
     /**
