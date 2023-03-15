@@ -27,7 +27,6 @@ public class HeapPage implements Page {
      * The format of a HeapPage is a set of header bytes indicating
      * the slots of the page that are in use, some number of tuple slots.
      *  Specifically, the number of tuples is equal to: <p>
-     *          floor((BufferPool.getPageSize()*8) / (tuple size * 8 + 1))
      * <p> where tuple size is the size of tuples in this
      * database table, which can be determined via {@link Catalog#getTupleDesc}.
      * The number of 8-bit header words is equal to:
@@ -67,7 +66,9 @@ public class HeapPage implements Page {
     */
     private int getNumTuples() {        
         // some code goes here
-        return 0;
+    	//该页能容纳字节数*8/（元组所需字节数*8+1位记录元组是否有效）
+    	int num = (int)Math.floor((BufferPool.getPageSize() * 8.0)/(td.getSize() * 8 + 1));
+        return num;
 
     }
 
@@ -78,7 +79,11 @@ public class HeapPage implements Page {
     private int getHeaderSize() {        
         
         // some code goes here
-        return 0;
+    	//页头是用来存储每个元组状态（是否被删除）的位向量，
+    	//其中每个元组都对应位向量中的一个二进制位。
+    	//每个二进制位表示相应元组的状态，值为1表示元组已被删除，值为0表示元组未被删除。
+    	//返回单位为字节
+        return (int)Math.ceil(getNumTuples() * 1.0 / 8);
                  
     }
     
@@ -112,7 +117,7 @@ public class HeapPage implements Page {
      */
     public HeapPageId getId() {
     // some code goes here
-    throw new UnsupportedOperationException("implement this");
+    	return pid;
     }
 
     /**
@@ -282,7 +287,14 @@ public class HeapPage implements Page {
      */
     public int getNumEmptySlots() {
         // some code goes here
-        return 0;
+    	//计算空槽位的数据
+    	int num = 0;
+    	for(int i = 0; i < numSlots; i++)
+    	{
+    		if(!isSlotUsed(i))
+    			num++;
+    	}
+        return num;
     }
 
     /**
@@ -290,7 +302,11 @@ public class HeapPage implements Page {
      */
     public boolean isSlotUsed(int i) {
         // some code goes here
-        return false;
+    	int quot = i / 8;         //计算位于页头的第几个字节
+    	int remain = i % 8;       //计算位于页头该字节的第几位
+    	int bitidx = header[quot];
+    	int bit = (bitidx >> remain) & 1; //取出该字节的最后一位
+    	return bit == 1;
     }
 
     /**
@@ -307,7 +323,12 @@ public class HeapPage implements Page {
      */
     public Iterator<Tuple> iterator() {
         // some code goes here
-        return null;
+    	//所有已被占用的槽位的元组的迭代器
+    	ArrayList<Tuple> temp = new ArrayList<Tuple>();
+    	for(int i = 0; i < numSlots; i++)
+    		if(isSlotUsed(i))
+    			temp.add(tuples[i]);
+    	return temp.iterator();
     }
 
 }
