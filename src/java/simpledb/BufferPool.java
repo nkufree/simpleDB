@@ -72,13 +72,12 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
-    	Page page = pageStore.getOrDefault(pid.hashCode(), null);
-    	if(page == null) {
-    		DbFile dbfile = Database.getCatalog().getDatabaseFile(pid.getTableId());
-    		Page tpage = dbfile.readPage(pid);
-    		pageStore.put(pid.hashCode(), tpage);
-    	}
-    	return page;
+    	if(!pageStore.containsKey(pid.hashCode())){
+            DbFile dbfile = Database.getCatalog().getDatabaseFile(pid.getTableId());
+            Page page = dbfile.readPage(pid);
+            pageStore.put(pid.hashCode(),page);
+        }
+        return pageStore.get(pid.hashCode());
     }
 
     /**
