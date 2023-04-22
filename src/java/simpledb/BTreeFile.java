@@ -203,11 +203,11 @@ public class BTreeFile implements DbFile {
 	    }
 
 	    // 不是叶节点，就寻找符合条件的孩子节点
-	    BTreeInternalPage currentPage = (BTreeInternalPage) getPage(tid, dirtypages, currentPageId, Permissions.READ_ONLY);
+	    BTreeInternalPage currentPage = (BTreeInternalPage) getPage(tid, dirtypages, currentPageId, perm);
 
 	    Iterator<BTreeEntry> iter = currentPage.iterator();
 	    if (f == null) {
-	        // 如果f为null，返回最左边的节点
+	        // 如果f为null，返回第一个节点的最左边的孩子节点
 	        return findLeafPage(tid, dirtypages, iter.next().getLeftChild(), perm, f);
 	    } else {
 	    	//如果不是，则找到大于等于他的节点
@@ -220,9 +220,6 @@ public class BTreeFile implements DbFile {
 			}
 	    	return findLeafPage(tid, dirtypages, entry.getLeftChild(), perm, f);
 	    }
-		
-	    
-	    
 	}
 	
 	/**
