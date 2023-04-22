@@ -253,7 +253,6 @@ public class HeapPage implements Page {
     public void deleteTuple(Tuple t) throws DbException {
         // some code goes here
         // not necessary for lab1
-    	//这里equals出问题了，所以自己写
     	int tid = t.getRecordId().getTupleNumber();
     	if(tuples[tid] == null)
     	{

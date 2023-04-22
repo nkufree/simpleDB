@@ -5,6 +5,7 @@ dist/
 output/
 out/
 log
+test1
 
 .idea
 *.iml

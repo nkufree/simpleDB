@@ -58,7 +58,7 @@ public class Aggregate extends Operator {
     	
     	
     	Type gfieldtype = gfield == -1 ? null : this.child.getTupleDesc().getFieldType(this.gfield);
-    	 
+    	
         if(this.child.getTupleDesc().getFieldType(this.afield) == (Type.STRING_TYPE)){
             this.aggregator = new StringAggregator(this.gfield,gfieldtype,this.afield,this.aop);
         }else{

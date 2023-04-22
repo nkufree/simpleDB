@@ -108,39 +108,39 @@ public class Join extends Operator {
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
          // some code goes here
 
-    	 Tuple rightTuple = null;
-		 while(child1.hasNext() || leftTuple != null)
-		 {
-	         if(child1.hasNext() && leftTuple == null)
-	         {
-	             leftTuple = child1.next();
-	         }
-	         while(child2.hasNext())
-	         {
-	             rightTuple = child2.next();
-	             if(p.filter(leftTuple,rightTuple))
-	             {
-	            	 Tuple t = new Tuple(this.getTupleDesc());
-	             	 int numFields = leftTuple.getTupleDesc().numFields() + rightTuple.getTupleDesc().numFields();
-	             	 t.setRecordId(leftTuple.getRecordId());
-	                 for (int i = 0; i < numFields; i++) 
-	                 {
-	                     if (i < leftTuple.getTupleDesc().numFields()) 
-	                     {
-	                         t.setField(i, leftTuple.getField(i));
-	                     } else 
-	                     {
-	                         t.setField(i, rightTuple.getField(i - leftTuple.getTupleDesc().numFields()));
-	                     }
-	                 }
-	                 //System.out.println(t.toString());
-	                 return t;
-	             }
-	         }
-	         child2.rewind();
-	         leftTuple = null;
-	     }
-	     return null;
+        Tuple rightTuple = null;
+        while(child1.hasNext() || leftTuple != null)
+        {
+            if(child1.hasNext() && leftTuple == null)
+            {
+                leftTuple = child1.next();
+            }
+            while(child2.hasNext())
+            {
+                rightTuple = child2.next();
+                if(p.filter(leftTuple,rightTuple))
+                {
+                    Tuple t = new Tuple(this.getTupleDesc());
+                    int numFields = leftTuple.getTupleDesc().numFields() + rightTuple.getTupleDesc().numFields();
+                    t.setRecordId(leftTuple.getRecordId());
+                    for (int i = 0; i < numFields; i++) 
+                    {
+                        if (i < leftTuple.getTupleDesc().numFields()) 
+                        {
+                            t.setField(i, leftTuple.getField(i));
+                        } else 
+                        {
+                            t.setField(i, rightTuple.getField(i - leftTuple.getTupleDesc().numFields()));
+                        }
+                    }
+                    //System.out.println(t.toString());
+                    return t;
+                }
+            }
+            child2.rewind();
+            leftTuple = null;
+        }
+        return null;
     	
     
     }
