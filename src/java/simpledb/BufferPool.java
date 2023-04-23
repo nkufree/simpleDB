@@ -146,20 +146,14 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
-    	DbFile f = Database.getCatalog().getDatabaseFile(tableId);
-        updateBufferPool(f.insertTuple(tid,t),tid);
-    }
-    
-    private void updateBufferPool(ArrayList<Page> pagelist,TransactionId tid) throws DbException{
-        for(Page p:pagelist){
-            p.markDirty(true,tid);
-            // update bufferpool
-            if(pageStore.size() > numPages)
-                evictPage();
-            pageStore.put(p.getId(),p);
+    	DbFile dbfile=Database.getCatalog().getDatabaseFile(tableId);
+        ArrayList<Page> tempArraylist=dbfile.insertTuple(tid,t);
+        for (Page nowPage:tempArraylist) {
+            //System.out.println(nowPage.getId()+"insert1");
+            nowPage.markDirty(true,tid);
+            pageStore.put(nowPage.getId(),nowPage);
         }
     }
-
     /**
      * Remove the specified tuple from the buffer pool.
      * Will acquire a write lock on the page the tuple is removed from and any
@@ -177,8 +171,13 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
-    	DbFile f = Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId());
-        updateBufferPool(f.deleteTuple(tid,t),tid);
+    	DbFile dbfile=Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId());
+        ArrayList<Page> tempArraylist=dbfile.deleteTuple(tid,t);
+        for(Page nowPage:tempArraylist){
+            //System.out.println(nowPage.getId()+"delete1");
+            nowPage.markDirty(true,tid);
+            pageStore.put(nowPage.getId(),nowPage);
+        }
     }
 
     /**
