@@ -2,6 +2,7 @@ package simpledb;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -28,6 +29,7 @@ public class BufferPool {
     
     private final int numPages;
     private final ConcurrentHashMap<PageId,Page> pageStore;  
+    private PageLockManager lockManager;
 
     /**
      * Creates a BufferPool that caches up to numPages pages.
@@ -38,6 +40,7 @@ public class BufferPool {
         // some code goes here
     	this.numPages = numPages;
     	pageStore = new ConcurrentHashMap<PageId,Page>();
+    	lockManager = new PageLockManager();
     }
     
     public static int getPageSize() {
@@ -72,6 +75,15 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
+    	//如果只读，可以获得shared锁，如果还需要修改，获得exclusive锁
+    	int lockType;
+        if(perm == Permissions.READ_ONLY){
+            lockType = 0;
+        }else{
+            lockType = 1;
+        }
+        boolean lockAcquired = false;
+    	
     	if(!pageStore.containsKey(pid)){
     		if(pageStore.size()>numPages){
                 evictPage();
@@ -95,6 +107,7 @@ public class BufferPool {
     public void releasePage(TransactionId tid, PageId pid) {
         // some code goes here
         // not necessary for lab1|lab2
+    	lockManager.releaseLock(pid,tid);
     }
 
     /**
@@ -105,13 +118,14 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+    	transactionComplete(tid,true);
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
     public boolean holdsLock(TransactionId tid, PageId p) {
         // some code goes here
         // not necessary for lab1|lab2
-        return false;
+    	return lockManager.holdsLock(p,tid);
     }
 
     /**
@@ -249,5 +263,116 @@ public class BufferPool {
          discardPage(pid);
 
     }
+    
+    private class Lock{
+        TransactionId tid;
+        int lockType;   // 0 : shared lock , 1 : exclusive lock
+ 
+        public Lock(TransactionId tid,int lockType){
+            this.tid = tid;
+            this.lockType = lockType;
+        }
+    }
+ 
+    private class PageLockManager{
+        ConcurrentHashMap<PageId,Vector<Lock>> lockMap;
+ 
+        public PageLockManager(){
+            lockMap = new ConcurrentHashMap<PageId,Vector<Lock>>();
+        }
+ 
+        public synchronized boolean acquireLock(PageId pid,TransactionId tid,int lockType){
+            // 如果没有锁，初始化
+            if(lockMap.get(pid) == null){
+                Lock lock = new Lock(tid,lockType);
+                Vector<Lock> locks = new Vector<>();
+                locks.add(lock);
+                lockMap.put(pid,locks);
+ 
+                return true;
+            }
+ 
+            // 如果有锁，获得他们
+            Vector<Lock> locks = lockMap.get(pid);
+ 
+            // 判断该事务是否已经获得锁
+            for(Lock lock:locks){
+                if(lock.tid == tid){
+                    // 已经获得该类型的锁
+                    if(lock.lockType == lockType)
+                        return true;
+                    //如果已经获得exclusive锁
+                    if(lock.lockType == 1)
+                        return true;
+                    // 如果获得的是shared锁，但是想获得exclusive锁
+                    //只有在只有该页被他一个锁住时才能变为exclusive锁，否则获取锁失败
+                    if(locks.size()==1){
+                        lock.lockType = 1;
+                        return true;
+                    }else{
+                        return false;
+                    }
+                }
+            }
+ 
+            // 如果该事务没有获得锁，判断获得锁的事务中是否有exclusive锁
+            //如果有exclusive锁，那么就应该只有这一个锁
+            if (locks.get(0).lockType ==1){
+                assert locks.size() == 1 : "exclusive lock can't coexist with other locks";
+                return false;
+            }
+ 
+            // 如果没有exclusive锁，可以赋予shared锁
+            if(lockType == 0){
+                Lock lock = new Lock(tid,0);
+                locks.add(lock);
+                lockMap.put(pid,locks);
+ 
+                return true;
+            }
+            //当有shared锁时无法获得exclusive锁
+            return false;
+        }
+ 
+ 
+        public synchronized boolean releaseLock(PageId pid,TransactionId tid){
+            // 如果没有锁
+            assert lockMap.get(pid) != null : "page not locked!";
+            Vector<Lock> locks = lockMap.get(pid);
+ 
+            for(int i=0;i<locks.size();++i){
+                Lock lock = locks.get(i);
+ 
+                // 释放锁
+                if(lock.tid == tid){
+                    locks.remove(lock);
+ 
+                    // 如果锁释放完了，该页就会从lockMap中移除
+                    if(locks.size() == 0)
+                        lockMap.remove(pid);
+                    return true;
+                }
+            }
+            //该事务没有锁住该页
+            return false;
+        }
+ 
+ 
+        public synchronized boolean holdsLock(PageId pid,TransactionId tid){
+            // 该页没有锁
+            if(lockMap.get(pid) == null)
+                return false;
+            Vector<Lock> locks = lockMap.get(pid);
+ 
+            //判断该页中的锁是否有该事务
+            for(Lock lock:locks){
+                if(lock.tid == tid){
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
 
 }
