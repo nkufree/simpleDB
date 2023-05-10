@@ -117,10 +117,12 @@ public class HeapFile implements DbFile {
     	ArrayList<Page> pageList= new ArrayList<Page>();
         for(int i=0;i<numPages();++i){
             // took care of getting new page
-            HeapPage p = (HeapPage) Database.getBufferPool().getPage(tid,
-                    new HeapPageId(this.getId(),i),Permissions.READ_WRITE);
-            if(p.getNumEmptySlots() == 0)
-                continue;
+        	HeapPageId pid = new HeapPageId(getId(),i);
+            HeapPage p = (HeapPage) Database.getBufferPool().getPage(tid,pid,Permissions.READ_WRITE);
+            if(p.getNumEmptySlots() == 0){
+            	Database.getBufferPool().releasePage(tid,pid);
+            	continue;
+        	}
             p.insertTuple(t);
             pageList.add(p);
             return pageList;

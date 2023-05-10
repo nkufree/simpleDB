@@ -88,10 +88,16 @@ public class BufferPool {
     		if(pageStore.size()>numPages){
                 evictPage();
             }
+    		
             DbFile dbfile = Database.getCatalog().getDatabaseFile(pid.getTableId());
             Page page = dbfile.readPage(pid);
             pageStore.put(pid,page);
         }
+    	while(!lockAcquired)
+    	{
+				lockAcquired = lockManager.acquireLock(pid, tid, lockType);
+    	}
+    	
         return pageStore.get(pid);
     }
 
@@ -139,6 +145,25 @@ public class BufferPool {
         throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+    	if(commit){
+            flushPages(tid);
+        }else{
+        	for (PageId pid : pageStore.keySet()) {
+                Page page = pageStore.get(pid);
+     
+                if (page.isDirty() == tid) {
+                    int tabId = pid.getTableId();
+                    DbFile file =  Database.getCatalog().getDatabaseFile(tabId);
+                    Page pageFromDisk = file.readPage(pid);
+                    pageStore.put(pid, pageFromDisk);
+                }
+            }
+        }
+ 
+        for(PageId pid:pageStore.keySet()){
+            if(holdsLock(tid,pid))
+                releasePage(tid,pid);
+        }
     }
 
     /**
@@ -245,6 +270,11 @@ public class BufferPool {
     public synchronized  void flushPages(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+    	for (Page page : pageStore.values()) {
+        	if (page.isDirty() !=null && page.isDirty()==tid) {
+        		flushPage(page.getId());
+        	}
+        }
     }
 
     /**
