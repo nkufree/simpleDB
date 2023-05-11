@@ -92,7 +92,7 @@ public class BufferPool {
             DbFile dbfile = Database.getCatalog().getDatabaseFile(pid.getTableId());
             Page page = dbfile.readPage(pid);
             pageStore.put(pid,page);
-        }
+        }=
     	while(!lockAcquired)
     	{
 				lockAcquired = lockManager.acquireLock(pid, tid, lockType);
@@ -284,13 +284,23 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
-    	 PageId pid = new ArrayList<>(pageStore.keySet()).get(0);
-         try{
-             flushPage(pid);
-         }catch(IOException e){
-             e.printStackTrace();
-         }
-         discardPage(pid);
+    	PageId pageId = null;
+    	for (PageId pid: pageStore.keySet()) {
+            Page page = pageStore.get(pid);
+            // 跳过脏页
+            if (page.isDirty() != null)
+                continue;
+ 
+            if (pageId == null) {
+                pageId = pid;
+                continue;
+            }
+        }
+ 
+        if (pageId == null)
+            throw  new DbException("failed to evict page: all pages are either dirty");
+         
+        pageStore.remove(pageId);
 
     }
     
