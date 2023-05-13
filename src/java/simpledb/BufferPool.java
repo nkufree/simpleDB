@@ -92,7 +92,7 @@ public class BufferPool {
             DbFile dbfile = Database.getCatalog().getDatabaseFile(pid.getTableId());
             Page page = dbfile.readPage(pid);
             pageStore.put(pid,page);
-        }=
+        }
     	while(!lockAcquired)
     	{
 				lockAcquired = lockManager.acquireLock(pid, tid, lockType);
@@ -146,8 +146,10 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1|lab2
     	if(commit){
+    		//如果提交，更新页面
             flushPages(tid);
         }else{
+        	//如果没有提交，从磁盘中读出原始文件
         	for (PageId pid : pageStore.keySet()) {
                 Page page = pageStore.get(pid);
      
@@ -159,7 +161,7 @@ public class BufferPool {
                 }
             }
         }
- 
+    	//最后释放该事务加的锁
         for(PageId pid:pageStore.keySet()){
             if(holdsLock(tid,pid))
                 releasePage(tid,pid);
