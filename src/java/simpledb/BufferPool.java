@@ -82,21 +82,25 @@ public class BufferPool {
         }else{
             lockType = 1;
         }
-        boolean lockAcquired = false;
-    	
+        boolean lockAcquired = lockManager.acquireLock(pid, tid, lockType);
+        long start = System.currentTimeMillis();
+        long timeout = 2000;
+        while(!lockAcquired){
+        	long now = System.currentTimeMillis();
+            if(now-start > timeout){
+                throw new TransactionAbortedException();
+            }
+				lockAcquired = lockManager.acquireLock(pid, tid, lockType);
+    	}
     	if(!pageStore.containsKey(pid)){
-    		if(pageStore.size()>numPages){
+    		if(pageStore.size()>=numPages){
                 evictPage();
             }
-    		
             DbFile dbfile = Database.getCatalog().getDatabaseFile(pid.getTableId());
             Page page = dbfile.readPage(pid);
             pageStore.put(pid,page);
         }
-    	while(!lockAcquired)
-    	{
-				lockAcquired = lockManager.acquireLock(pid, tid, lockType);
-    	}
+    	
     	
         return pageStore.get(pid);
     }
@@ -255,12 +259,8 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
     	Page p = pageStore.get(pid);
-        TransactionId tid = null;
         // flush it if it is dirty
-        if((tid = p.isDirty())!= null){
-            Database.getLogFile().logWrite(tid,p.getBeforeImage(),p);
-            Database.getLogFile().force();
-            // write to disk
+        if( p.isDirty()!= null){
             Database.getCatalog().getDatabaseFile(pid.getTableId()).writePage(p);
             p.markDirty(false,null);
         }
@@ -273,7 +273,7 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1|lab2
     	for (Page page : pageStore.values()) {
-        	if (page.isDirty() !=null && page.isDirty()==tid) {
+        	if (page.isDirty()==tid) {
         		flushPage(page.getId());
         	}
         }
@@ -286,22 +286,20 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
+    	
     	PageId pageId = null;
     	for (PageId pid: pageStore.keySet()) {
             Page page = pageStore.get(pid);
             // 跳过脏页
             if (page.isDirty() != null)
                 continue;
- 
-            if (pageId == null) {
                 pageId = pid;
-                continue;
-            }
+                break;
         }
- 
-        if (pageId == null)
-            throw  new DbException("failed to evict page: all pages are either dirty");
-         
+        if (pageId == null){
+        		throw  new DbException("failed to evict page: all pages are either dirty");
+        	}
+        
         pageStore.remove(pageId);
 
     }

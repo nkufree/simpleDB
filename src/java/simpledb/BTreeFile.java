@@ -203,7 +203,7 @@ public class BTreeFile implements DbFile {
 	    }
 
 	    // 不是叶节点，就寻找符合条件的孩子节点
-	    BTreeInternalPage currentPage = (BTreeInternalPage) getPage(tid, dirtypages, currentPageId, perm);
+	    BTreeInternalPage currentPage = (BTreeInternalPage) getPage(tid, dirtypages, currentPageId, Permissions.READ_ONLY);
 
 	    Iterator<BTreeEntry> iter = currentPage.iterator();
 	    if (f == null) {
@@ -259,7 +259,7 @@ public class BTreeFile implements DbFile {
 	    }
 
 	    // 不是叶节点，就寻找符合条件的孩子节点
-	    BTreeInternalPage currentPage = (BTreeInternalPage) getPage(tid, dirtypages, currentPageId, perm);
+	    BTreeInternalPage currentPage = (BTreeInternalPage) getPage(tid, dirtypages, currentPageId, Permissions.READ_ONLY);
 
 	    Iterator<BTreeEntry> iter = currentPage.reverseIterator();
 	    if (f == null) {
@@ -397,7 +397,7 @@ public class BTreeFile implements DbFile {
 
 		BTreeEntry newEntry = new BTreeEntry(index, leftPage.getId(), page.getId()); 
 		updateParentPointers(tid, dirtypages, leftPage);
-		//updateParentPointers(tid, dirtypages, page);
+		updateParentPointers(tid, dirtypages, page);
 		
 		BTreeInternalPage parentPage = getParentWithEmptySlots(tid, dirtypages, page.getParentId(), index);
 		parentPage.insertEntry(newEntry);

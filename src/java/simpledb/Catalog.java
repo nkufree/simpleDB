@@ -56,6 +56,13 @@ public class Catalog {
     public void addTable(DbFile file, String name, String pkeyField) {
         // some code goes here
     	Table tab = new Table(file,name,pkeyField);
+    	//如果有重复名字的table，移除原本的table
+    	for(ConcurrentHashMap.Entry<Integer,Table> entry: hashTable.entrySet()){
+			if(entry.getValue().tableName.equals(name)) {
+				hashTable.remove(entry.getKey());
+				break;
+			}
+		}
     	hashTable.put(file.getId(), tab);
     }
 
