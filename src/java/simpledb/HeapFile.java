@@ -158,68 +158,79 @@ public class HeapFile implements DbFile {
     public DbFileIterator iterator(TransactionId tid) {
         // some code goes here
     	
-        return new HeapFileIterator(tid,this);
+        return new HeapFileIterator(this,tid);
     }
     
-    public class HeapFileIterator implements DbFileIterator {
-        private TransactionId tid;
-        private HeapFile heapFile;
-        private int currentPageNum;
-        private Iterator<Tuple> currentTupleIterator;
-
-        public HeapFileIterator(TransactionId tid, HeapFile hf) {
+    private static final class HeapFileIterator implements DbFileIterator{
+        private final HeapFile heapFile;
+        private final TransactionId tid;
+        private Iterator<Tuple> it;
+        private int whichPage;
+ 
+        public HeapFileIterator(HeapFile file,TransactionId tid){
+            this.heapFile = file;
             this.tid = tid;
-            this.heapFile = hf;
-            this.currentPageNum = -1;
-            this.currentTupleIterator = null;
         }
-
+        @Override
         public void open() throws DbException, TransactionAbortedException {
-            currentPageNum = 0;
-            PageId pid = new HeapPageId(heapFile.getId(), currentPageNum);
-            HeapPage page = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_ONLY);
-            currentTupleIterator = page.iterator();
+            // TODO Auto-generated method stub
+            whichPage = 0;
+            it = getPageTuples(whichPage);
         }
-
+ 
+        private Iterator<Tuple> getPageTuples(int pageNumber) throws TransactionAbortedException, DbException{
+            if(pageNumber >= 0 && pageNumber < heapFile.numPages()){
+                HeapPageId pid = new HeapPageId(heapFile.getId(),pageNumber);
+                HeapPage page = (HeapPage)Database.getBufferPool().getPage(tid, pid, Permissions.READ_ONLY);
+                return page.iterator();
+            }else{
+                throw new DbException(String.format("heapfile %d does not contain page %d!", pageNumber,heapFile.getId()));
+            }
+        }
+ 
+        @Override
         public boolean hasNext() throws DbException, TransactionAbortedException {
-            if (currentTupleIterator == null) {
+            // TODO Auto-generated method stub
+            if(it == null){
                 return false;
             }
-            if (currentTupleIterator.hasNext()) {
-                return true;
-            } else {
-                while (currentPageNum < heapFile.numPages() - 1) {
-                    currentPageNum++;
-                    PageId pid = new HeapPageId(heapFile.getId(), currentPageNum);
-                    HeapPage page = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_ONLY);
-                    currentTupleIterator = page.iterator();
-                    if (currentTupleIterator.hasNext()) {
-                        return true;
-                    }
+ 
+            if(!it.hasNext()){
+                if(whichPage < (heapFile.numPages()-1)){
+                    whichPage++;
+                    it = getPageTuples(whichPage);
+                    return it.hasNext();
+                }else{
+                    return false;
                 }
+            }else{
+                return true;
             }
-            return false;
         }
-
+ 
+        @Override
         public Tuple next() throws DbException, TransactionAbortedException, NoSuchElementException {
-            if (currentTupleIterator == null || !currentTupleIterator.hasNext()) {
+            // TODO Auto-generated method stub
+            if(it == null || !it.hasNext()){
                 throw new NoSuchElementException();
             }
-            return currentTupleIterator.next();
+            return it.next();
         }
-
+ 
+        @Override
         public void rewind() throws DbException, TransactionAbortedException {
+            // TODO Auto-generated method stub
             close();
             open();
         }
-
+ 
+        @Override
         public void close() {
-            currentPageNum = -1;
-            currentTupleIterator = null;
+            // TODO Auto-generated method stub
+            it = null;
         }
+ 
     }
-
-    
     
 
 }

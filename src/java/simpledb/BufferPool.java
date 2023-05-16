@@ -2,6 +2,8 @@ package simpledb;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -84,13 +86,22 @@ public class BufferPool {
         }
         boolean lockAcquired = lockManager.acquireLock(pid, tid, lockType);
         long start = System.currentTimeMillis();
-        long timeout = 2000;
+        long timeout = 1000;
         while(!lockAcquired){
+        	/*
         	long now = System.currentTimeMillis();
+        	
             if(now-start > timeout){
                 throw new TransactionAbortedException();
             }
-				lockAcquired = lockManager.acquireLock(pid, tid, lockType);
+        	//System.out.println("获取锁失败");*/
+        	try {
+				Thread.sleep(1);
+			} catch (InterruptedException e) {
+				// TODO 自动生成的 catch 块
+				e.printStackTrace();
+			}
+			lockAcquired = lockManager.acquireLock(pid, tid, lockType);
     	}
     	if(!pageStore.containsKey(pid)){
     		if(pageStore.size()>=numPages){
@@ -316,13 +327,17 @@ public class BufferPool {
  
     private class PageLockManager{
         ConcurrentHashMap<PageId,Vector<Lock>> lockMap;
+        ConcurrentHashMap<TransactionId, Set<TransactionId>> dependencyMap;
  
         public PageLockManager(){
             lockMap = new ConcurrentHashMap<PageId,Vector<Lock>>();
+            dependencyMap = new ConcurrentHashMap<TransactionId, Set<TransactionId>>();
         }
  
-        public synchronized boolean acquireLock(PageId pid,TransactionId tid,int lockType){
+        public synchronized boolean acquireLock(PageId pid,TransactionId tid,int lockType) throws TransactionAbortedException{
             // 如果没有锁，初始化
+        	//System.out.println("获取锁");
+        	//System.out.println(tid.getId());
             if(lockMap.get(pid) == null){
                 Lock lock = new Lock(tid,lockType);
                 Vector<Lock> locks = new Vector<>();
@@ -350,6 +365,12 @@ public class BufferPool {
                         lock.lockType = 1;
                         return true;
                     }else{
+                    	for(Lock lock2:locks) {
+                    		if(tid != lock2.tid)
+                    			addDependency(lock2.tid,tid);
+                    		if(hasDeadlock())
+                    			throw new TransactionAbortedException();
+                    	}
                         return false;
                     }
                 }
@@ -359,6 +380,9 @@ public class BufferPool {
             //如果有exclusive锁，那么就应该只有这一个锁
             if (locks.get(0).lockType ==1){
                 assert locks.size() == 1 : "exclusive lock can't coexist with other locks";
+                addDependency(locks.get(0).tid,tid);
+                if(hasDeadlock())
+        			throw new TransactionAbortedException();
                 return false;
             }
  
@@ -371,6 +395,11 @@ public class BufferPool {
                 return true;
             }
             //当有shared锁时无法获得exclusive锁
+            for(Lock lock2:locks) {
+        			addDependency(lock2.tid,tid);
+        	}
+            if(hasDeadlock())
+    			throw new TransactionAbortedException();
             return false;
         }
  
@@ -379,14 +408,13 @@ public class BufferPool {
             // 如果没有锁
             assert lockMap.get(pid) != null : "page not locked!";
             Vector<Lock> locks = lockMap.get(pid);
- 
             for(int i=0;i<locks.size();++i){
                 Lock lock = locks.get(i);
  
                 // 释放锁
                 if(lock.tid == tid){
                     locks.remove(lock);
- 
+                    removeDependency(tid);
                     // 如果锁释放完了，该页就会从lockMap中移除
                     if(locks.size() == 0)
                         lockMap.remove(pid);
@@ -412,7 +440,89 @@ public class BufferPool {
             }
             return false;
         }
-    }
+        
+        public synchronized boolean addDependency(TransactionId t1,TransactionId t2) {
+        	//System.out.println("添加");
+        	//System.out.println(t1.getId());
+        	if(dependencyMap.get(t1) == null) {
+        		TransactionId t = t1;
+        		Set<TransactionId> tids = new HashSet<>();
+        		 tids.add(t2);
+        		 dependencyMap.put(t, tids);
+        		 return true;
+        	}
+        	Set<TransactionId> tids = dependencyMap.get(t1);
+	   		 tids.add(t2);
+	   		 return true;
+        }
+        
+        public synchronized boolean removeDependency(TransactionId tid) {
+        	/*
+        	assert dependencyMap.get(t1) != null : "no such dependency!";
+            Vector<TransactionId> tids = dependencyMap.get(t1);
+ 
+            for(int i=0;i<tids.size();++i){
+            	TransactionId t = tids.get(i);
+ 
+                // 释放锁
+                if(t == t2){
+                    tids.remove(t2);
+ 
+                    // 如果锁释放完了，该页就会从lockMap中移除
+                    if(tids.size() == 0)
+                    	dependencyMap.remove(t1);
+                    return true;
+                }
+            }
+            //该事务没有锁住该页
+            return false;*/
+        	//System.out.println("移除");
+        	//System.out.println(tid.getId());
+        	if(dependencyMap.get(tid) == null) return false;
+        	dependencyMap.remove(tid);
+        	return true;
+        }
 
+        public boolean hasDeadlock() {
+            // 创建一个访问标记数组，用于记录每个页面的访问状态
+            ConcurrentHashMap<TransactionId, Boolean> visited = new ConcurrentHashMap<>();
+            
+            // 对每个页面进行深度优先搜索
+            for (TransactionId tid : dependencyMap.keySet()) {
+                if (!visited.containsKey(tid)) {
+                    if (hasDeadlockDFS(tid, visited)) {
+                        return true; // 存在死锁
+                    }
+                }
+            }
+            
+            return false; // 不存在死锁
+        }
+
+        private boolean hasDeadlockDFS(TransactionId tid, ConcurrentHashMap<TransactionId, Boolean> visited) {
+            visited.put(tid, true); // 标记当前页面为已访问
+            
+            Set<TransactionId> tids = dependencyMap.get(tid); // 获取当前页面的锁向量
+            
+            if (tids != null) {
+                for (TransactionId t : tids) {
+                    
+                    if (!visited.containsKey(t)) {
+                        if (hasDeadlockDFS(t, visited)) {
+                            return true; // 存在循环依赖，发现死锁
+                        }
+                    } else {
+                        return true; // 发现循环依赖，发现死锁
+                    }
+                }
+            }
+            
+            visited.remove(tid); // 清除已访问标记
+            return false; // 不存在死锁
+        }
+
+    }
+    
+    
 
 }
