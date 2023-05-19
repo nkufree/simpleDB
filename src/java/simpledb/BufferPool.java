@@ -86,17 +86,17 @@ public class BufferPool {
         }
         boolean lockAcquired = lockManager.acquireLock(pid, tid, lockType);
         long start = System.currentTimeMillis();
-        long timeout = 1000;
+        long timeout = 200;
         while(!lockAcquired){
-        	/*
+        	
         	long now = System.currentTimeMillis();
         	
             if(now-start > timeout){
                 throw new TransactionAbortedException();
             }
-        	//System.out.println("获取锁失败");*/
+        	//System.out.println("获取锁失败");
         	try {
-				Thread.sleep(1);
+				Thread.sleep(10);
 			} catch (InterruptedException e) {
 				// TODO 自动生成的 catch 块
 				e.printStackTrace();
@@ -337,7 +337,7 @@ public class BufferPool {
         public synchronized boolean acquireLock(PageId pid,TransactionId tid,int lockType) throws TransactionAbortedException{
             // 如果没有锁，初始化
         	//System.out.println("获取锁");
-        	//System.out.println(tid.getId());
+        	//System.out.println(pid);
             if(lockMap.get(pid) == null){
                 Lock lock = new Lock(tid,lockType);
                 Vector<Lock> locks = new Vector<>();
@@ -411,6 +411,8 @@ public class BufferPool {
             for(int i=0;i<locks.size();++i){
                 Lock lock = locks.get(i);
  
+                //System.out.println("释放锁");
+            	//System.out.println(pid);
                 // 释放锁
                 if(lock.tid == tid){
                     locks.remove(lock);
@@ -444,6 +446,7 @@ public class BufferPool {
         public synchronized boolean addDependency(TransactionId t1,TransactionId t2) {
         	//System.out.println("添加");
         	//System.out.println(t1.getId());
+        	if(t1 == t2) return false;
         	if(dependencyMap.get(t1) == null) {
         		TransactionId t = t1;
         		Set<TransactionId> tids = new HashSet<>();
