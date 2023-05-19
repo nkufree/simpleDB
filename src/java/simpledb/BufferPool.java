@@ -85,8 +85,8 @@ public class BufferPool {
             lockType = 1;
         }
         boolean lockAcquired = lockManager.acquireLock(pid, tid, lockType);
-        long start = System.currentTimeMillis();
-        long timeout = 200;
+        //long start = System.currentTimeMillis();
+        //long timeout = 2000;
         while(!lockAcquired){
         	/*
         	long now = System.currentTimeMillis();
