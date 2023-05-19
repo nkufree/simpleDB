@@ -409,14 +409,13 @@ public class BTreeFile implements DbFile {
 		//	lockPage =  (BTreeInternalPage) getPage(tid, dirtypages, lockPage.getParentId(), Permissions.READ_WRITE);
 		//}
 		//getPage(tid, dirtypages, lockPage.getParentId(), Permissions.READ_WRITE);
-		
 		//将一半的entry存到新的页面中
 		BTreeInternalPage leftPage = (BTreeInternalPage) getEmptyPage(tid, dirtypages, BTreePageId.INTERNAL);
 		Iterator<BTreeEntry> entrys = page.iterator();
 		if(entrys == null || !entrys.hasNext())
 			throw new DbException("Internal Page has no entry!");
-		int numEntry = page.getNumEntries() / 2;
-		for(int i=0; i<numEntry; ++i)
+		int numEntry = page.getNumEntries();
+		for(int i=0; i<numEntry  / 2; ++i)
 		{
 			BTreeEntry entry = entrys.next();
 			page.deleteKeyAndLeftChild(entry);     //由于在插入时会检查该entry是否在其他页面中存在
@@ -425,12 +424,6 @@ public class BTreeFile implements DbFile {
 		//将中间的entry加入到父结点中，并更新父节点指针
 		BTreeEntry e = entrys.next();
 		Field index = e.getKey();
-		if(field.compare(Op.GREATER_THAN_OR_EQ, index)){
-			page.deleteKeyAndLeftChild(e);
-			leftPage.insertEntry(e);	
-			e = entrys.next();
-			index = e.getKey();
-		}
 		page.deleteKeyAndLeftChild(e);  
 
 		BTreeEntry newEntry = new BTreeEntry(index, leftPage.getId(), page.getId()); 

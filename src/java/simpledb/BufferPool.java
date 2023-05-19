@@ -88,12 +88,12 @@ public class BufferPool {
         long start = System.currentTimeMillis();
         long timeout = 200;
         while(!lockAcquired){
-        	
+        	/*
         	long now = System.currentTimeMillis();
         	
             if(now-start > timeout){
                 throw new TransactionAbortedException();
-            }
+            }*/
         	//System.out.println("获取锁失败");
         	try {
 				Thread.sleep(10);
